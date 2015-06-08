@@ -1,0 +1,23 @@
+{
+    "appKeys": {},
+    "capabilities": [
+        ""
+    ],
+    "companyName": "jbakita@cs.unc.edu",
+    "longName": "Pebble Shake",
+    "projectType": "native",
+    "resources": {
+        "media": []
+    },
+    "sdkVersion": "3",
+    "shortName": "Pebble Shake",
+    "targetPlatforms": [
+        "aplite",
+        "basalt"
+    ],
+    "uuid": "28f328ac-e3a4-4c31-9fc6-379d1cc604cf",
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
+}
