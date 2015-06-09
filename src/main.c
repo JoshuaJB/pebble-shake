@@ -34,10 +34,15 @@ static void start(ClickRecognizerRef recognizer, void *context) {
   else if (state != PRERUN)
     return;
   state = RECORDING;
-  // Register acceleration event handler with a 25 sample buffer
-  accel_data_service_subscribe(25, cache_accel);
-  // Display the pre-run message
-  text_layer_set_text(text_layer, "Recording...\n\nShake away!\n\n(press any button to finish)");
+  /* TODO: Register acceleration event handler with a 25 sample buffer
+   * See: http://developer.getpebble.com/docs/c/Foundation/Event_Service/AccelerometerService/
+   */
+  
+  /* TODO: Display the pre-run message
+   * Hint: Use text_layer_set_text(TextLayer * <layer>, char * <text>))
+   * See: http://developer.getpebble.com/docs/c/User_Interface/Layers/TextLayer/#text_layer_set_text
+   */
+  
 }
 
 // Analyse and dislay data
@@ -46,27 +51,25 @@ static void finish(ClickRecognizerRef recognizer, void *context) {
   if (state != RECORDING)
     return;
   state = FINISHED;
-  // De-register acceleration event handler
-  accel_data_service_unsubscribe();
-  // Find maximimum accelerometer reading
-  uint16_t max = dataCache[0];
-  for (unsigned int i = 1; i < dataCacheIdx; i++)
-    if (dataCache[i] > max)
-      max = dataCache[i];
-  // Display appropriate message
-  if (max > highscore) {
-    static char score_text[117];
-    snprintf(score_text, 117, "Congratulations! You have a new high score of %d.\n\nThe old high score was %d.\n\nTo play again, press any button.", max, highscore);
-    text_layer_set_text(text_layer, score_text);
-    // Save new high score
-    highscore = max;
-    persist_write_int(0, highscore);
-  }
-  else {
-    static char score_text[96];
-    snprintf(score_text, 96, "Good try. Your score was %d and the high score is %d.\n\nTo play again, press any button.", max, highscore);
-    text_layer_set_text(text_layer, score_text);
-  }
+  /* TODO: De-register acceleration event handler
+   * See: http://developer.getpebble.com/docs/c/Foundation/Event_Service/AccelerometerService/
+   */
+  
+  /* TODO: Find maximimum accelerometer reading
+   * Hint: You only need one variable)
+   */
+
+  /* TODO: If the maximum reading is larger than the highscore,
+   *       print a congratulations and the new highscore. Then
+   *       save it with persist_write_int(0, highscore). Other-
+   *       -wise, tell the user that their score wasn't good
+   *       enough to beat the highscore.
+   * Hint: Use snprintf, text_layer_set_text, and make sure that
+   *       you pass a static char pointer
+   * See: http://developer.getpebble.com/docs/c/Standard_C/Format/
+   *      http://developer.getpebble.com/docs/c/Foundation/Storage/#persist_write_int
+   *      http://developer.getpebble.com/docs/c/User_Interface/Layers/TextLayer/#text_layer_set_text
+   */
 }
 
 // Caches data for later use from the accelerometer data service
@@ -89,9 +92,12 @@ static void cache_accel(AccelData * data, uint32_t num_samples) {
     else
       dataCache = tempDataCache;
   }
-  // Compute the acceleration vector magnitude and store it.
-  for (unsigned int i = 0; i < num_samples; dataCacheIdx++, i++)
-    dataCache[dataCacheIdx] = isqrt(data[i].x * data[i].x + data[i].y * data[i].y + data[i].z * data[i].z);
+  /* TODO: Compute each the acceleration vector magnitude and
+   *       store it in dataCache.
+   * Hint: Use isqrt and the pythagorian theorem
+   * See: http://developer.getpebble.com/docs/c/Foundation/Event_Service/AccelerometerService/#AccelData
+   */
+
 }
 
 // Setup button handling
@@ -108,10 +114,16 @@ static void main_window_load(Window *window) {
   text_layer = text_layer_create(layer_get_bounds(window_get_root_layer(my_window)));
   text_layer_set_text(text_layer, "Welcome!\n\nTo get started, press any button.");
   layer_add_child(window_get_root_layer(my_window), text_layer_get_layer(text_layer));
-  // Set Accelerometer to sample rate
-  accel_service_set_sampling_rate(SAMPLE_RATE);
-  // Load initial high score
-  highscore = persist_read_int(0);
+  /* TODO: Set Accelerometer to sample rate
+   * Hint: Use the SAMPLE_RATE constant defined on line 14
+   * See: http://developer.getpebble.com/docs/c/Foundation/Event_Service/AccelerometerService/#accel_service_set_sampling_rate
+   */
+
+  /* TODO: Load the initial high score, use a key of 0
+   * Hint: highscore is already setup as a global variable
+   * See: http://developer.getpebble.com/docs/c/Foundation/Storage/#persist_read_int
+   */
+
 }
 
 void handle_init(void) {
