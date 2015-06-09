@@ -21,11 +21,6 @@ enum states {
 };
 enum states state = PRERUN;
 
-// TODO: handle out of memory error
-static void oomerror() {
-  return;
-}
-
 // Start data recording
 static void start(ClickRecognizerRef recognizer, void *context) {
   // Manage the state
@@ -87,11 +82,13 @@ static void cache_accel(AccelData * data, uint32_t num_samples) {
   }
   else if (dataCacheIdx + num_samples > dataCacheSize) {
     uint16_t * tempDataCache = realloc(dataCache, sizeof(uint16_t) * (dataCacheSize + num_samples) * 2);
+    // If the memory allocation failed, just analyse what data we were able to collect.
     if (tempDataCache == NULL)
       finish(NULL, NULL);
     else
       dataCache = tempDataCache;
   }
+  // Compute the acceleration vector magnitude and store it.
   for (unsigned int i = 0; i < num_samples; dataCacheIdx++, i++)
     dataCache[dataCacheIdx] = isqrt(data[i].x * data[i].x + data[i].y * data[i].y + data[i].z * data[i].z);
 }
