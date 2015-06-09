@@ -1,6 +1,10 @@
 #include <pebble.h>
 #include <math.h> // For integer square root (isqrt)
 
+static void start(ClickRecognizerRef recognizer, void *context);
+static void finish(ClickRecognizerRef recognizer, void *context);
+static void cache_accel(AccelData * data, uint32_t num_samples);
+
 Window *my_window;
 TextLayer  *text_layer;
 
@@ -12,31 +16,14 @@ static uint16_t highScore;
 enum states {
   RECORDING,
   FINISHED,
-  PRERUN
+  PRERUN,
+  NOMEM
 };
 enum states state = PRERUN;
 
 // TODO: handle out of memory error
 static void oomerror() {
   return;
-}
-
-// Caches data for later use from the accelerometer data service
-static void cache_accel(AccelData * data, uint32_t num_samples) {
-  // We automatically grow the array as needed
-  if (dataCache == NULL) {
-    if ((dataCache = malloc(sizeof(uint16_t) * dataCacheSize)) == NULL)
-      oomerror();
-  }
-  else if (dataCacheIdx + num_samples > dataCacheSize) {
-    uint16_t * tempDataCache = realloc(dataCache, sizeof(uint16_t) * (dataCacheSize + num_samples) * 2);
-    if (tempDataCache == NULL)
-      oomerror();
-    else
-      dataCache = tempDataCache;
-  }
-  for (unsigned int i = 0; i < num_samples; dataCacheIdx++, i++)
-    dataCache[dataCacheIdx] = isqrt(data[i].x * data[i].x + data[i].y * data[i].y + data[i].z * data[i].z);
 }
 
 // Start data recording
@@ -84,6 +71,29 @@ static void finish(ClickRecognizerRef recognizer, void *context) {
     snprintf(score_text, 62, "Good try. Your score was %d and the high score is %d.", max, highScore);
     text_layer_set_text(text_layer, score_text);
   }
+}
+
+// Caches data for later use from the accelerometer data service
+static void cache_accel(AccelData * data, uint32_t num_samples) {
+  // We automatically grow the array as needed
+  if (dataCache == NULL) {
+    // Fail gracefully if the initial memory allocation fails
+    if ((dataCache = malloc(sizeof(uint16_t) * dataCacheSize)) == NULL) {
+      text_layer_set_text(text_layer, "Oh no!\n\nIt looks like your Pebble has insufficient memory. Try removing any background applications and try again.");
+      // De-register acceleration event handler
+      accel_data_service_unsubscribe();
+      state = NOMEM;
+    }
+  }
+  else if (dataCacheIdx + num_samples > dataCacheSize) {
+    uint16_t * tempDataCache = realloc(dataCache, sizeof(uint16_t) * (dataCacheSize + num_samples) * 2);
+    if (tempDataCache == NULL)
+      finish(NULL, NULL);
+    else
+      dataCache = tempDataCache;
+  }
+  for (unsigned int i = 0; i < num_samples; dataCacheIdx++, i++)
+    dataCache[dataCacheIdx] = isqrt(data[i].x * data[i].x + data[i].y * data[i].y + data[i].z * data[i].z);
 }
 
 // Setup button handling
