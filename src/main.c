@@ -1,25 +1,29 @@
 #include <pebble.h>
 #include <math.h> // For integer square root (isqrt)
 
-static void start(ClickRecognizerRef recognizer, void *context);
-static void finish(ClickRecognizerRef recognizer, void *context);
-static void cache_accel(AccelData * data, uint32_t num_samples);
-
-Window *my_window;
-TextLayer  *text_layer;
-
-static uint32_t dataCacheSize = 100;
-static uint32_t dataCacheIdx = 0;
-static uint16_t * dataCache;
+// Constants
 static const AccelSamplingRate SAMPLE_RATE = ACCEL_SAMPLING_100HZ;
-static uint16_t highscore;
+static const uint16_t STARTING_ALLOCATION = 100;
 enum states {
   RECORDING,
   FINISHED,
   PRERUN,
   NOMEM
 };
-enum states state = PRERUN;
+
+// Function prototypes
+static void start(ClickRecognizerRef recognizer, void *context);
+static void finish(ClickRecognizerRef recognizer, void *context);
+static void cache_accel(AccelData * data, uint32_t num_samples);
+
+// Global variables
+static Window * my_window;
+static TextLayer  * text_layer;
+static uint32_t dataCacheSize = 0;
+static uint32_t dataCacheIdx = 0;
+static uint16_t * dataCache;
+static uint16_t highscore;
+static enum states state = PRERUN;
 
 // Start data recording
 static void start(ClickRecognizerRef recognizer, void *context) {
@@ -74,23 +78,40 @@ static void finish(ClickRecognizerRef recognizer, void *context) {
 
 // Caches data for later use from the accelerometer data service
 static void cache_accel(AccelData * data, uint32_t num_samples) {
-  // We automatically grow the array as needed
-  if (dataCache == NULL) {
-    // Fail gracefully if the initial memory allocation fails
-    if ((dataCache = malloc(sizeof(uint16_t) * dataCacheSize)) == NULL) {
-      text_layer_set_text(text_layer, "Oh no!\n\nIt looks like your Pebble has insufficient memory. Try removing any background applications and try again.");
+  // Automatically grow the array as needed (similar to Java's ArrayList or C++'s Vector)
+  if (dataCacheIdx + num_samples > dataCacheSize) {
+    // Initially allocate STARTING_ALLOCATION number of slots
+    uint16_t newSize;
+    if (dataCacheSize == 0)
+      newSize = STARTING_ALLOCATION;
+    else
+      newSize = dataCacheSize * 2;
+    // Pebble's realloc implementation is not ISO-compliant so we have to use malloc and memcpy
+    uint16_t * tempDataCache = malloc(sizeof(uint16_t) * newSize);
+    // Make sure the allocation succeeded before we use the memory
+    if (tempDataCache != NULL) {
+      memcpy(tempDataCache, dataCache, sizeof(uint16_t) * dataCacheSize);
+      free(dataCache);
+      dataCache = tempDataCache;
+      dataCacheSize = newSize;
+    }
+    // If we collected any usable data, just finish early
+    else if (dataCacheIdx > 0) {
+      APP_LOG(APP_LOG_LEVEL_WARNING, "Early termination of recording due to insufficient memory.");
+      finish(NULL, NULL);
+      return;
+    }
+    // Otherwise, display an error
+    else {
+      APP_LOG(APP_LOG_LEVEL_ERROR, "Unable to cache any data due to low memory.");
       // De-register acceleration event handler
       accel_data_service_unsubscribe();
+      // Prevent entry to start or finish
       state = NOMEM;
+      // Tell user
+      text_layer_set_text(text_layer, "Oh no!\n\nIt looks like your Pebble has insufficient memory available.\n\nTry removing some background applications and try again.");
+      return;
     }
-  }
-  else if (dataCacheIdx + num_samples > dataCacheSize) {
-    uint16_t * tempDataCache = realloc(dataCache, sizeof(uint16_t) * (dataCacheSize + num_samples) * 2);
-    // If the memory allocation failed, just analyse what data we were able to collect.
-    if (tempDataCache == NULL)
-      finish(NULL, NULL);
-    else
-      dataCache = tempDataCache;
   }
   /* TODO: Compute each the acceleration vector magnitude and
    *       store it in dataCache.
